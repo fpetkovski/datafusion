@@ -350,6 +350,9 @@ impl FileOpener for ParquetOpener {
             // underlying reader.
             let mut options =
                 ArrowReaderOptions::new().with_page_index_policy(PageIndexPolicy::Skip);
+            if let Some(schema) = partitioned_file.arrow_schema {
+                options = options.with_schema(schema);
+            }
             #[cfg(feature = "parquet_encryption")]
             if let Some(fd_val) = file_decryption_properties {
                 options = options.with_file_decryption_properties(Arc::clone(&fd_val));

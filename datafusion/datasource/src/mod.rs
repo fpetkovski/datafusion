@@ -147,6 +147,21 @@ pub struct PartitionedFile {
     pub extensions: Option<Arc<dyn std::any::Any + Send + Sync>>,
     /// The estimated size of the parquet metadata, in bytes
     pub metadata_size_hint: Option<usize>,
+    /// Optional Arrow schema describing this file's contents.
+    ///
+    /// When present, format readers that support a schema hint (e.g. the
+    /// parquet reader via [`ArrowReaderOptions::with_schema`]) will use this
+    /// schema instead of inferring one from the file. This skips schema
+    /// inference, disambiguates Parquet types with multiple valid Arrow
+    /// representations (e.g. `Utf8` vs `Utf8View`, `List<Struct>` vs `Map`),
+    /// and surfaces schema mismatches as errors at open time.
+    ///
+    /// The schema must describe **this file's** columns exactly (count,
+    /// nullability, per-field metadata) — not a union schema across files.
+    /// Use this when files in the same scan have heterogeneous schemas.
+    ///
+    /// [`ArrowReaderOptions::with_schema`]: parquet::arrow::arrow_reader::ArrowReaderOptions::with_schema
+    pub arrow_schema: Option<arrow::datatypes::SchemaRef>,
 }
 
 impl PartitionedFile {
@@ -166,6 +181,7 @@ impl PartitionedFile {
             ordering: None,
             extensions: None,
             metadata_size_hint: None,
+            arrow_schema: None,
         }
     }
 
@@ -179,6 +195,7 @@ impl PartitionedFile {
             ordering: None,
             extensions: None,
             metadata_size_hint: None,
+            arrow_schema: None,
         }
     }
 
@@ -198,8 +215,15 @@ impl PartitionedFile {
             ordering: None,
             extensions: None,
             metadata_size_hint: None,
+            arrow_schema: None,
         }
         .with_range(start, end)
+    }
+
+    /// Attach a per-file Arrow schema hint. See [`Self::arrow_schema`].
+    pub fn with_arrow_schema(mut self, schema: arrow::datatypes::SchemaRef) -> Self {
+        self.arrow_schema = Some(schema);
+        self
     }
 
     /// Attach partition values to this file.
@@ -335,6 +359,7 @@ impl From<ObjectMeta> for PartitionedFile {
             ordering: None,
             extensions: None,
             metadata_size_hint: None,
+            arrow_schema: None,
         }
     }
 }
@@ -532,6 +557,7 @@ pub fn generate_test_files(num_files: usize, overlap_factor: f64) -> Vec<FileGro
             ordering: None,
             extensions: None,
             metadata_size_hint: None,
+            arrow_schema: None,
         };
         files.push(file);
     }
